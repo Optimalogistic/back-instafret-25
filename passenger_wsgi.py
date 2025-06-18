@@ -1,0 +1,1 @@
+from optima.wsgi import application
