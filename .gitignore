@@ -1,6 +1,7 @@
 # ── Python / Django ──────────────────────────────────────────────
 __pycache__/
 *.py[cod]
+optima/__pycache__/
 optimasite/__pycache__/
 
 # ── Django artefacts ─────────────────────────────────────────────
