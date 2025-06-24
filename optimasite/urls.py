@@ -1,9 +1,14 @@
 from django.urls import path,include,re_path
+
 from rest_framework.routers import DefaultRouter
+
 from . import views
+
 from .views import *
 
 router = DefaultRouter()
+
+# Your existing router registrations remain unchanged...
 router.register('companies-get',V_companies_get,basename='companies-get')
 router.register('companies-post',V_companies_post,basename='companies-post')
 router.register('user-is-name',V_users_is_name,basename='user-is-name')
@@ -71,7 +76,35 @@ router.register('request-copy',V_request_copy_get,basename='request-copy')
 router.register('request-code',V_requestcodes_post,basename='request-code')
 router.register('currencies',V_currencies_get,basename='currencies')
 router.register('banner',V_banner_get,basename='banner')
-urlpatterns = router.urls
+
+###################################################################################
+# NEW SHIPMENT TRACKING ENDPOINTS (Following your naming convention)
+###################################################################################
+# NEW SHIPMENT TRACKING ENDPOINTS
+router.register('carriers-get',V_carriers_get,basename='carriers-get')
+router.register('carriers-post',V_carriers_post,basename='carriers-post')
+router.register('shipment-tags-get',V_shipment_tags_get,basename='shipment-tags-get')
+router.register('shipment-tags-post',V_shipment_tags_post,basename='shipment-tags-post')
+router.register('shipments-get',V_shipments_get,basename='shipments-get')
+router.register('shipments-post',V_shipments_post,basename='shipments-post')
+router.register('shipments-count',V_shipments_count,basename='shipments-count')
+router.register('shipments-track-public',V_shipments_track_public,basename='shipments-track-public')
+router.register('shipment-status-get',V_shipment_status_updates_get,basename='shipment-status-get')
+router.register('shipment-status-post',V_shipment_status_updates_post,basename='shipment-status-post')
+router.register('shipment-followers-get',V_shipment_followers_get,basename='shipment-followers-get')
+router.register('shipment-followers-post',V_shipment_followers_post,basename='shipment-followers-post')
+router.register('broker-profiles-get',V_broker_profiles_get,basename='broker-profiles-get')
+router.register('broker-profiles-post',V_broker_profiles_post,basename='broker-profiles-post')
+router.register('notification-logs-get',V_notification_logs_get,basename='notification-logs-get')
+
+# NEW WALLET ENDPOINTS
+router.register('supported-currencies-get', V_supported_currencies_get, basename='supported-currencies-get')
+router.register('user-wallets-get', V_user_wallets_get, basename='user-wallets-get')
+router.register('wallet-transactions-get', V_wallet_transactions_get, basename='wallet-transactions-get')
+router.register('admin-credit-wallet', V_admin_credit_wallet, basename='admin-credit-wallet')
+router.register('wallet-summary', V_wallet_summary, basename='wallet-summary')
+
+# IMPORTANT: urlpatterns should come AFTER all router registrations
 urlpatterns = [
     path('',include(router.urls)),
     re_path('send-email', EmailAPI.as_view()),

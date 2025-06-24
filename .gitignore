@@ -1,0 +1,56 @@
+# ── Python / Django ──────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+optimasite/__pycache__/
+
+# ── Django artefacts ─────────────────────────────────────────────
+#   Migrations should be kept only when the project is published as a library.
+#   For most in-house apps you can regenerate them.
+optimasite/migrations/
+
+# Runtime uploads
+optimasite/uploads/
+
+# Local databases
+db.sqlite3
+*.sqlite3
+SQL/
+
+# User-generated media & collected static files
+media/
+static/              # comment this line if this folder contains *source* assets
+staticfiles/
+
+# Virtual environments
+env/
+venv/
+.venv/
+
+# Build / packaging output
+.Python
+build/
+dist/
+.eggs/
+*.egg-info/
+*.whl
+
+# Logs & temp files
+logs/
+tmp/
+*.log
+
+# Tests / coverage
+.tox/
+.pytest_cache/
+.coverage*
+
+# IDEs & OS clutter
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+Thumbs.db
+
+# Hosting artefacts
+.ftpquota
