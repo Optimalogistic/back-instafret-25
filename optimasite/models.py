@@ -1798,3 +1798,28 @@ class wallet_top_ups(models.Model):
         verbose_name = "Wallet Top-up"
         verbose_name_plural = "Wallet Top-ups"
         ordering = ['-created_at']
+
+#  ─── juste après la classe tokens ───
+    
+# Dans votre modèle device_tokens existant, ajoutez ce champ :
+
+    """
+    Un token FCM par navigateur ou appareil mobile.
+    N’affecte pas la table optimasite_tokens existante.
+    """
+    
+
+class device_tokens(models.Model):
+    user = models.ForeignKey("users", on_delete=models.CASCADE, related_name="device_tokens")
+    token = models.CharField(max_length=255, unique=True)
+    user_agent = models.CharField(max_length=255, blank=True)
+    is_active = models.BooleanField(default=True)  # Ajoutez cette ligne
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"({self.id}) {self.user.username} – {self.token[:20]}..."
+
+    class Meta:
+        verbose_name = "Device Token"
+        verbose_name_plural = "Device Tokens"
+

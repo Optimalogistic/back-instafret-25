@@ -290,6 +290,14 @@ class wallet_top_ups(admin.ModelAdmin):
     def get_user(self, obj):
         return obj.wallet.user.username
     get_user.short_description = "User"
+    
+
+@admin.register(models.device_tokens)
+class device_tokens_admin(admin.ModelAdmin):
+    list_display  = ["id", "user", "token", "created_at"]
+    search_fields = ["token", "user__username"]
+    list_filter   = ["created_at"]
+
 
 ###################################################################################
 # VEHICLES THEME - Vehicles and Categories
