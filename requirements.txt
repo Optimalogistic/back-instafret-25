@@ -32,3 +32,7 @@ django-redis==5.4.0
 stripe==7.8.0
 django-money==3.4.1
 py-moneyed==3.0
+# New packages notification fcm
+firebase-admin
+pyfcm
+

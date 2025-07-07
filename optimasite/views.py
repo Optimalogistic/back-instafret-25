@@ -1,17 +1,70 @@
 from django.shortcuts import render
 from django.http import HttpResponse
-from rest_framework import viewsets
+from rest_framework import viewsets, status, permissions
 from .serializers import *
 from .models import *
 from rest_framework.response import Response
-from rest_framework import status
+
 from rest_framework import filters
 from django.db.models import Q
 from rest_framework.views import APIView
 from django.conf import settings as A_settings
 from django.core.mail import EmailMultiAlternatives, get_connection
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
+
+from .models import device_tokens
+from .serializers import (
+    S_device_tokens_post,   # le serializer POST
+    S_device_tokens_get     # le serializer GET
+)
+# Ajoutez ces imports en haut de votre fichier views.py
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib.auth.decorators import login_required
+from django.utils.decorators import method_decorator
+import json
+
+def get_custom_user(request):
+    """
+    Retourne une instance du modèle users correspondant à l'utilisateur connecté.
+    Si l'utilisateur n'existe pas dans users, il le crée automatiquement.
+    """
+    if not request.user.is_authenticated:
+        return None
+    email = getattr(request.user, 'email', None)
+    if email:
+        try:
+            return users.objects.get(email=email)
+        except users.DoesNotExist:
+            return users.objects.create(
+                username=getattr(request.user, 'username', ""),
+                email=email,
+                firstname=getattr(request.user, 'first_name', ""),
+                lastname=getattr(request.user, 'last_name', ""),
+                account_status=True,
+                permissions_id=3,  # à adapter
+                usertype_id=1,     # à adapter
+                lang_id=1,         # à adapter
+            )
+    username = getattr(request.user, 'username', None)
+    if username:
+        try:
+            return users.objects.get(username=username)
+        except users.DoesNotExist:
+            return users.objects.create(
+                username=username,
+                email="",
+                firstname=getattr(request.user, 'first_name', ""),
+                lastname=getattr(request.user, 'last_name', ""),
+                account_status=True,
+                permissions_id=3,
+                usertype_id=1,
+                lang_id=1,
+            )
+    return None
+
 
 # Your existing views remain unchanged...
 
@@ -764,3 +817,432 @@ class V_wallet_top_ups_get(viewsets.ModelViewSet):
     filter_backends = [filters.SearchFilter]
     search_fields = ['=wallet__user__id']
     http_method_names = ['get']
+
+
+# -------------------------------------------------------------------
+
+class V_device_tokens(viewsets.ModelViewSet):
+    """
+    • GET    /api/device-tokens/           → liste des tokens de l’utilisateur
+    • POST   /api/device-tokens/           → enregistre ou met à jour un token
+    • POST   /api/device-tokens/delete_token/
+                                            body: {"token": "<token>"}
+    """
+    permission_classes = [IsAuthenticated]
+    serializer_class   = S_device_tokens_get
+    queryset           = device_tokens.objects.all()
+
+    def get_queryset(self):
+        custom_user = get_custom_user(self.request)
+        if not custom_user:
+            return device_tokens.objects.none()
+        return self.queryset.filter(user=custom_user)
+
+    def create(self, request, *args, **kwargs):
+        serializer = S_device_tokens_post(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        custom_user = get_custom_user(request)
+        if not custom_user:
+            return Response({"error": "Utilisateur non authentifié"}, status=401)
+        device_tokens.objects.update_or_create(
+            token=serializer.validated_data["token"],
+            defaults={
+                "user": custom_user,
+                "user_agent": serializer.validated_data.get("user_agent", ""),
+                "is_active": True
+            }
+        )
+        return Response({"saved": True}, status=status.HTTP_201_CREATED)
+
+    @action(methods=["post"], detail=False)
+    def delete_token(self, request):
+        tok = request.data.get("token")
+        if not tok:
+            return Response({"error": "token required"}, status=400)
+        custom_user = get_custom_user(request)
+        if not custom_user:
+            return Response({"error": "Utilisateur non authentifié"}, status=401)
+        deleted, _ = device_tokens.objects.filter(user=custom_user, token=tok).delete()
+        return Response({"deleted": bool(deleted)})
+    
+# # Ajoutez ces vues à la fin de votre fichier views.py
+
+# @staff_member_required
+# @csrf_exempt
+# def register_device_token(request):
+#     if request.method == 'POST':
+#         try:
+#             data = json.loads(request.body)
+#             token = data.get('token')
+#             user_agent = data.get('user_agent', '')
+#             user_id = data.get('user_id') or request.user.id
+            
+#             device, created = device_tokens.objects.get_or_create(
+#                 token=token,
+#                 defaults={
+#                     'user_id': user_id,
+#                     'user_agent': user_agent,
+#                     'is_active': True
+#                 }
+#             )
+            
+#             if not created:
+#                 device.is_active = True
+#                 device.save()
+            
+#             return JsonResponse({'success': True, 'created': created})
+#         except Exception as e:
+#             return JsonResponse({'success': False, 'error': str(e)})
+    
+#     return JsonResponse({'success': False, 'error': 'Method not allowed'})
+
+# @staff_member_required
+# def test_notification(request):
+#     """Vue pour tester les notifications admin"""
+#     from .services.fcm_service import test_admin_notification
+    
+#     result = test_admin_notification()
+#     return JsonResponse(result)
+
+# Ajoutez aussi cette vue pour les device tokens
+class V_device_tokens_post(viewsets.ModelViewSet):
+    serializer_class = S_device_tokens_post
+    queryset = device_tokens.objects.all()
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['post']
+
+    def perform_create(self, serializer):
+        custom_user = get_custom_user(self.request)
+        if not custom_user:
+            raise Exception("Utilisateur non authentifié ou non trouvé")
+        # Désactiver les anciens tokens de cet utilisateur
+        device_tokens.objects.filter(user=custom_user).update(is_active=False)
+        # Créer le nouveau token
+        serializer.save(user=custom_user, is_active=True)
+
+class V_device_tokens_get(viewsets.ModelViewSet):
+    serializer_class = S_device_tokens_get
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['get']
+
+    def get_queryset(self):
+        custom_user = get_custom_user(self.request)
+        if not custom_user:
+            return device_tokens.objects.none()
+        return device_tokens.objects.filter(user=custom_user)
+    
+class V_notifications_get(viewsets.ModelViewSet):
+    serializer_class = S_notifications_get
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['get']
+
+    def get_queryset(self):
+        custom_user = get_custom_user(self.request)
+        if not custom_user:
+            return notification_logs.objects.none()
+        return notification_logs.objects.filter(user=custom_user).order_by('-created_at')[:50]
+
+class V_notifications_post(viewsets.ModelViewSet):
+    serializer_class = S_notifications_post
+    queryset = notification_logs.objects.all()
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['post']
+
+    def perform_create(self, serializer):
+        custom_user = get_custom_user(self.request)
+        if not custom_user:
+            raise Exception("Utilisateur non authentifié ou non trouvé")
+        serializer.save(user=custom_user)
+        
+
+# Vues Admin pour Notifications (avec les bons imports)
+class V_admin_notifications_send(viewsets.ModelViewSet):
+    serializer_class = S_admin_notifications_send
+    permission_classes = [IsAuthenticated, IsAdminUser]  # Maintenant IsAdminUser est importé
+    http_method_names = ['post']
+
+    def create(self, request, *args, **kwargs):
+        from .services.fcm_service import fcm_service
+        
+        title = request.data.get('title')
+        body = request.data.get('body')
+        user_ids = request.data.get('user_ids', [])
+        notification_type = request.data.get('type', 'admin')
+        
+        if not title or not body:
+            return Response({'error': 'Title and body are required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Récupérer les utilisateurs
+        target_users = users.objects.filter(id__in=user_ids)
+        
+        if not target_users.exists():
+            return Response({'error': 'No valid users found'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Envoyer les notifications
+        result = fcm_service.send_notification_with_sound(
+            tokens=fcm_service.get_user_tokens(target_users),
+            title=title,
+            body=body,
+            data={
+                'type': notification_type,
+                'admin_sent': 'true'
+            }
+        )
+        
+        return Response(result)
+
+class V_admin_notifications_broadcast(viewsets.ModelViewSet):
+    serializer_class = S_admin_notifications_broadcast
+    permission_classes = [IsAuthenticated, IsAdminUser]  # Maintenant IsAdminUser est importé
+    http_method_names = ['post']
+
+    def create(self, request, *args, **kwargs):
+        from .services.fcm_service import fcm_service
+        
+        title = request.data.get('title')
+        body = request.data.get('body')
+        target_type = request.data.get('target_type', 'all')
+        
+        if not title or not body:
+            return Response({'error': 'Title and body are required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Déterminer les utilisateurs cibles
+        if target_type == 'companies':
+            target_users = users.objects.filter(user_type__name='Company')
+        elif target_type == 'users':
+            target_users = users.objects.filter(user_type__name='Client')
+        else:
+            target_users = users.objects.filter(is_active=True)
+        
+        # Envoyer par chunks pour éviter les limites
+        result = fcm_service.send_chunked_notifications(
+            tokens=fcm_service.get_user_tokens(target_users),
+            title=title,
+            body=body,
+            data={
+                'type': 'broadcast',
+                'target_type': target_type
+            }
+        )
+        
+        return Response(result)
+
+
+class V_notification_settings_get(viewsets.ModelViewSet):
+    serializer_class = S_notification_settings_get
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['get']
+
+    def list(self, request, *args, **kwargs):
+        # Retourner les paramètres de notification de l'utilisateur
+        user_settings = {
+            'new_requests': True,
+            'status_updates': True,
+            'new_offers': True,
+            'marketing': False,
+            'sound_enabled': True,
+            'email_notifications': True
+        }
+        
+        # Vous pouvez créer un modèle pour stocker ces préférences
+        return Response(user_settings)
+
+class V_notification_settings_post(viewsets.ModelViewSet):
+    serializer_class = S_notification_settings_post
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['post', 'put']
+
+    def create(self, request, *args, **kwargs):
+        # Sauvegarder les paramètres de notification
+        settings_data = request.data
+        
+        # Ici vous pouvez sauvegarder dans un modèle UserNotificationSettings
+        return Response({'success': True, 'message': 'Settings updated'})
+
+#####  SYSTEM NOUVEU NOTIF ADMIn ######
+
+@csrf_exempt
+def register_device_token(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            token = data.get('token')
+            user_agent = data.get('user_agent', '')
+            custom_user = get_custom_user(request)
+            if not custom_user:
+                return JsonResponse({'success': False, 'error': 'User not authenticated'})
+            device_tokens.objects.filter(user=custom_user).update(is_active=False)
+            device, created = device_tokens.objects.get_or_create(
+                token=token,
+                defaults={
+                    'user': custom_user,
+                    'user_agent': user_agent,
+                    'is_active': True
+                }
+            )
+            if not created:
+                device.user = custom_user
+                device.is_active = True
+                device.user_agent = user_agent
+                device.save()
+            return JsonResponse({'success': True, 'created': created})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    return JsonResponse({'success': False, 'error': 'Method not allowed'})
+
+@staff_member_required
+def test_notification(request):
+    """Vue pour tester les notifications admin"""
+    from .services.fcm_service import test_admin_notification
+    
+    result = test_admin_notification()
+    return JsonResponse(result)
+
+@login_required
+@csrf_exempt
+def mark_notification_read(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            notification_id = data.get('notification_id')
+            
+            # Marquer comme lu (si vous avez un modèle pour ça)
+            return JsonResponse({'success': True})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Method not allowed'})
+
+@login_required
+def mark_all_notifications_read(request):
+    if request.method == 'POST':
+        # Marquer toutes les notifications comme lues
+        return JsonResponse({'success': True})
+    
+    return JsonResponse({'success': False, 'error': 'Method not allowed'})
+
+@csrf_exempt
+def refresh_firebase_token(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            old_token = data.get('old_token')
+            new_token = data.get('new_token')
+            
+            if old_token and new_token:
+                # Mettre à jour le token
+                device_tokens.objects.filter(token=old_token).update(token=new_token)
+                return JsonResponse({'success': True})
+            
+            return JsonResponse({'success': False, 'error': 'Tokens required'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Method not allowed'})
+
+@csrf_exempt
+def validate_firebase_token(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            token = data.get('token')
+            
+            if token:
+                exists = device_tokens.objects.filter(token=token, is_active=True).exists()
+                return JsonResponse({'valid': exists})
+            
+            return JsonResponse({'valid': False})
+        except Exception as e:
+            return JsonResponse({'valid': False, 'error': str(e)})
+    
+    return JsonResponse({'valid': False, 'error': 'Method not allowed'})
+
+@staff_member_required
+def notification_statistics(request):
+    """Statistiques des notifications pour l'admin"""
+    stats = {
+        'total_tokens': device_tokens.objects.filter(is_active=True).count(),
+        'total_users_with_tokens': device_tokens.objects.filter(is_active=True).values('user').distinct().count(),
+        'notifications_sent_today': 0,  # Vous pouvez calculer ça si vous avez un modèle de logs
+        'success_rate': 95.5  # Exemple
+    }
+    
+    return JsonResponse(stats)
+
+@staff_member_required
+def notification_logs_view(request):
+    """Logs des notifications pour l'admin"""
+    # Retourner les logs de notifications
+    return JsonResponse({'logs': []})
+
+@login_required
+def user_notification_preferences(request):
+    """Préférences de notification de l'utilisateur"""
+    if request.method == 'GET':
+        preferences = {
+            'new_requests': True,
+            'status_updates': True,
+            'new_offers': True,
+            'sound_enabled': True
+        }
+        return JsonResponse(preferences)
+    
+    elif request.method == 'POST':
+        # Sauvegarder les préférences
+        return JsonResponse({'success': True})
+
+@staff_member_required
+@csrf_exempt
+def bulk_notify_users(request):
+    """Notification en masse aux utilisateurs"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            title = data.get('title')
+            body = data.get('body')
+            
+            from .services.fcm_service import fcm_service
+            
+            # Récupérer tous les utilisateurs clients
+            target_users = users.objects.filter(user_type__name='Client', is_active=True)
+            
+            result = fcm_service.send_chunked_notifications(
+                tokens=fcm_service.get_user_tokens(target_users),
+                title=title,
+                body=body,
+                data={'type': 'bulk_user_notification'}
+            )
+            
+            return JsonResponse(result)
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Method not allowed'})
+
+@staff_member_required
+@csrf_exempt
+def bulk_notify_companies(request):
+    """Notification en masse aux entreprises"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            title = data.get('title')
+            body = data.get('body')
+            
+            from .services.fcm_service import fcm_service
+            
+            # Récupérer toutes les entreprises
+            target_users = users.objects.filter(user_type__name='Company', is_active=True)
+            
+            result = fcm_service.send_chunked_notifications(
+                tokens=fcm_service.get_user_tokens(target_users),
+                title=title,
+                body=body,
+                data={'type': 'bulk_company_notification'}
+            )
+            
+            return JsonResponse(result)
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Method not allowed'})

@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import *
-
+import json
+from datetime import datetime
 # Your existing serializers...
 
 class S_currencies_get(serializers.ModelSerializer):
@@ -646,3 +647,256 @@ class S_wallet_top_ups_get(serializers.ModelSerializer):
     class Meta:
         model = wallet_top_ups
         fields = ['id', 'amount', 'points_earned', 'status', 'payment_method', 'created_at', 'completed_at']
+        
+
+###################################################################################
+# FIREBASE NOTIFICATIONS SERIALIZERS (Following your naming convention)
+###################################################################################
+
+# Device Tokens Serializers
+class S_device_tokens_get(serializers.ModelSerializer):
+    user = S_users_flat(many=False, read_only=True)
+    
+    class Meta:
+        model = device_tokens
+        fields = ['id', 'token', 'user_agent', 'is_active', 'created_at', 'user']
+
+class S_device_tokens_post(serializers.ModelSerializer):
+    class Meta:
+        model = device_tokens
+        fields = ['token', 'user_agent']  # l'utilisateur est injecté côté vue
+
+# Notification Logs Serializers
+class S_notifications_get(serializers.ModelSerializer):
+    user = S_users_flat(many=False, read_only=True)
+    
+    class Meta:
+        model = notification_logs
+        fields = ['id', 'title', 'message', 'notification_type', 'is_read', 'created_at', 'user']
+
+class S_notifications_post(serializers.ModelSerializer):
+    class Meta:
+        model = notification_logs
+        fields = ['title', 'message', 'notification_type', 'data']
+
+# Admin Notification Serializers
+class S_admin_notifications_send(serializers.Serializer):
+    title = serializers.CharField(max_length=255)
+    body = serializers.CharField(max_length=1000)
+    user_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        allow_empty=False
+    )
+    type = serializers.CharField(max_length=50, default='admin')
+    sound = serializers.CharField(max_length=100, required=False, default='notification.mp3')
+    url = serializers.URLField(required=False, allow_blank=True)
+    data = serializers.JSONField(required=False, default=dict)
+
+class S_admin_notifications_broadcast(serializers.Serializer):
+    title = serializers.CharField(max_length=255)
+    body = serializers.CharField(max_length=1000)
+    target_type = serializers.ChoiceField(
+        choices=[('all', 'All Users'), ('users', 'Clients Only'), ('companies', 'Companies Only')],
+        default='all'
+    )
+    type = serializers.CharField(max_length=50, default='broadcast')
+    sound = serializers.CharField(max_length=100, required=False, default='notification.mp3')
+    url = serializers.URLField(required=False, allow_blank=True)
+    data = serializers.JSONField(required=False, default=dict)
+
+# Notification Settings Serializers
+class S_notification_settings_get(serializers.Serializer):
+    new_requests = serializers.BooleanField(default=True)
+    status_updates = serializers.BooleanField(default=True)
+    new_offers = serializers.BooleanField(default=True)
+    new_users = serializers.BooleanField(default=True)
+    marketing = serializers.BooleanField(default=False)
+    sound_enabled = serializers.BooleanField(default=True)
+    email_notifications = serializers.BooleanField(default=True)
+    push_notifications = serializers.BooleanField(default=True)
+
+class S_notification_settings_post(serializers.Serializer):
+    new_requests = serializers.BooleanField(required=False)
+    status_updates = serializers.BooleanField(required=False)
+    new_offers = serializers.BooleanField(required=False)
+    new_users = serializers.BooleanField(required=False)
+    marketing = serializers.BooleanField(required=False)
+    sound_enabled = serializers.BooleanField(required=False)
+    email_notifications = serializers.BooleanField(required=False)
+    push_notifications = serializers.BooleanField(required=False)
+
+# Firebase Token Management Serializers
+class S_firebase_token_refresh(serializers.Serializer):
+    old_token = serializers.CharField(max_length=500)
+    new_token = serializers.CharField(max_length=500)
+
+class S_firebase_token_validate(serializers.Serializer):
+    token = serializers.CharField(max_length=500)
+
+# Notification Statistics Serializers
+class S_notification_statistics(serializers.Serializer):
+    total_tokens = serializers.IntegerField(read_only=True)
+    total_users_with_tokens = serializers.IntegerField(read_only=True)
+    notifications_sent_today = serializers.IntegerField(read_only=True)
+    notifications_sent_this_week = serializers.IntegerField(read_only=True)
+    notifications_sent_this_month = serializers.IntegerField(read_only=True)
+    success_rate = serializers.FloatField(read_only=True)
+    failed_notifications = serializers.IntegerField(read_only=True)
+
+# Bulk Notification Serializers
+class S_bulk_notification(serializers.Serializer):
+    title = serializers.CharField(max_length=255)
+    body = serializers.CharField(max_length=1000)
+    type = serializers.CharField(max_length=50, default='bulk')
+    sound = serializers.CharField(max_length=100, required=False, default='notification.mp3')
+    url = serializers.URLField(required=False, allow_blank=True)
+    data = serializers.JSONField(required=False, default=dict)
+    schedule_time = serializers.DateTimeField(required=False)
+
+# User Notification Preferences Serializers
+class S_user_notification_preferences_get(serializers.Serializer):
+    new_requests = serializers.BooleanField()
+    status_updates = serializers.BooleanField()
+    new_offers = serializers.BooleanField()
+    marketing = serializers.BooleanField()
+    sound_enabled = serializers.BooleanField()
+    email_notifications = serializers.BooleanField()
+    push_notifications = serializers.BooleanField()
+
+class S_user_notification_preferences_post(serializers.Serializer):
+    new_requests = serializers.BooleanField(required=False)
+    status_updates = serializers.BooleanField(required=False)
+    new_offers = serializers.BooleanField(required=False)
+    marketing = serializers.BooleanField(required=False)
+    sound_enabled = serializers.BooleanField(required=False)
+    email_notifications = serializers.BooleanField(required=False)
+    push_notifications = serializers.BooleanField(required=False)
+
+# Notification Template Serializers
+class S_notification_template_get(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    name = serializers.CharField(max_length=100)
+    title_template = serializers.CharField(max_length=255)
+    body_template = serializers.CharField(max_length=1000)
+    type = serializers.CharField(max_length=50)
+    sound = serializers.CharField(max_length=100)
+    is_active = serializers.BooleanField()
+    created_at = serializers.DateTimeField(read_only=True)
+
+class S_notification_template_post(serializers.Serializer):
+    name = serializers.CharField(max_length=100)
+    title_template = serializers.CharField(max_length=255)
+    body_template = serializers.CharField(max_length=1000)
+    type = serializers.CharField(max_length=50)
+    sound = serializers.CharField(max_length=100, default='notification.mp3')
+    is_active = serializers.BooleanField(default=True)
+
+# Notification Queue Serializers
+class S_notification_queue_get(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    title = serializers.CharField(max_length=255)
+    body = serializers.CharField(max_length=1000)
+    recipient_count = serializers.IntegerField()
+    status = serializers.CharField(max_length=20)
+    scheduled_time = serializers.DateTimeField()
+    sent_time = serializers.DateTimeField(allow_null=True)
+    success_count = serializers.IntegerField(default=0)
+    failure_count = serializers.IntegerField(default=0)
+    created_at = serializers.DateTimeField(read_only=True)
+
+class S_notification_queue_post(serializers.Serializer):
+    title = serializers.CharField(max_length=255)
+    body = serializers.CharField(max_length=1000)
+    recipient_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        allow_empty=False
+    )
+    scheduled_time = serializers.DateTimeField(required=False)
+    type = serializers.CharField(max_length=50, default='queued')
+    sound = serializers.CharField(max_length=100, default='notification.mp3')
+
+# FCM Response Serializers
+class S_fcm_response(serializers.Serializer):
+    success = serializers.BooleanField()
+    success_count = serializers.IntegerField(default=0)
+    failure_count = serializers.IntegerField(default=0)
+    total_tokens = serializers.IntegerField(default=0)
+    message = serializers.CharField(max_length=255, required=False)
+    error = serializers.CharField(max_length=500, required=False)
+
+# Notification Analytics Serializers
+class S_notification_analytics_get(serializers.Serializer):
+    date = serializers.DateField()
+    total_sent = serializers.IntegerField()
+    total_delivered = serializers.IntegerField()
+    total_failed = serializers.IntegerField()
+    delivery_rate = serializers.FloatField()
+    by_type = serializers.JSONField()
+    by_platform = serializers.JSONField()
+
+# Device Info Serializers
+class S_device_info_get(serializers.Serializer):
+    token = serializers.CharField(max_length=500)
+    platform = serializers.CharField(max_length=50)
+    app_version = serializers.CharField(max_length=20)
+    os_version = serializers.CharField(max_length=50)
+    device_model = serializers.CharField(max_length=100)
+    last_active = serializers.DateTimeField()
+    is_active = serializers.BooleanField()
+
+class S_device_info_post(serializers.Serializer):
+    platform = serializers.CharField(max_length=50)
+    app_version = serializers.CharField(max_length=20)
+    os_version = serializers.CharField(max_length=50)
+    device_model = serializers.CharField(max_length=100)
+
+# Test Notification Serializers
+class S_test_notification(serializers.Serializer):
+    title = serializers.CharField(max_length=255, default="🧪 Test Notification")
+    body = serializers.CharField(max_length=1000, default="Ceci est un test du système de notifications")
+    type = serializers.CharField(max_length=50, default="test")
+    sound = serializers.CharField(max_length=100, default="test_notification.mp3")
+    target_user_id = serializers.IntegerField(required=False)
+
+# Mark Notification Read Serializers
+class S_mark_notification_read(serializers.Serializer):
+    notification_id = serializers.IntegerField()
+
+class S_mark_all_notifications_read(serializers.Serializer):
+    user_id = serializers.IntegerField(required=False)
+
+###################################################################################
+# ENHANCED NOTIFICATION SERIALIZERS FOR SPECIFIC USE CASES
+###################################################################################
+
+# New User Notification Serializer
+class S_new_user_notification(serializers.Serializer):
+    user_id = serializers.IntegerField()
+    username = serializers.CharField(max_length=150)
+    email = serializers.EmailField()
+    company_name = serializers.CharField(max_length=255, required=False)
+
+# New Request Notification Serializer
+class S_new_request_notification(serializers.Serializer):
+    request_id = serializers.IntegerField()
+    request_ref = serializers.CharField(max_length=50)
+    user_name = serializers.CharField(max_length=150)
+    company_name = serializers.CharField(max_length=255, required=False)
+    budget = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
+
+# Status Update Notification Serializer
+class S_status_update_notification(serializers.Serializer):
+    request_id = serializers.IntegerField()
+    request_ref = serializers.CharField(max_length=50)
+    old_status = serializers.CharField(max_length=50)
+    new_status = serializers.CharField(max_length=50)
+    user_id = serializers.IntegerField()
+
+# New Offer Notification Serializer
+class S_new_offer_notification(serializers.Serializer):
+    offer_id = serializers.IntegerField()
+    request_id = serializers.IntegerField()
+    request_ref = serializers.CharField(max_length=50)
+    company_name = serializers.CharField(max_length=255)
+    offer_value = serializers.DecimalField(max_digits=10, decimal_places=2)
+    user_id = serializers.IntegerField()

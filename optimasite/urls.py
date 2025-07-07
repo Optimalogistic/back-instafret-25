@@ -5,6 +5,7 @@ from rest_framework.routers import DefaultRouter
 from . import views
 
 from .views import *
+from .views import V_device_tokens
 
 router = DefaultRouter()
 
@@ -104,8 +105,64 @@ router.register('wallet-transactions-get', V_wallet_transactions_get, basename='
 router.register('admin-credit-wallet', V_admin_credit_wallet, basename='admin-credit-wallet')
 router.register('wallet-summary', V_wallet_summary, basename='wallet-summary')
 
+# notification firebase
+router.register('device-tokens', V_device_tokens, basename='device-tokens')
+
+
+# Device Tokens Management
+router.register('device-tokens-get', V_device_tokens_get, basename='device-tokens-get')
+router.register('device-tokens-post', V_device_tokens_post, basename='device-tokens-post')
+
+# Notification Management  
+router.register('notifications-get', V_notifications_get, basename='notifications-get')
+router.register('notifications-post', V_notifications_post, basename='notifications-post')
+
+# Admin Notification Controls
+router.register('admin-notifications-send', V_admin_notifications_send, basename='admin-notifications-send')
+router.register('admin-notifications-broadcast', V_admin_notifications_broadcast, basename='admin-notifications-broadcast')
+
+# Notification Settings
+router.register('notification-settings-get', V_notification_settings_get, basename='notification-settings-get')
+router.register('notification-settings-post', V_notification_settings_post, basename='notification-settings-post')
+
 # IMPORTANT: urlpatterns should come AFTER all router registrations
+
 urlpatterns = [
-    path('',include(router.urls)),
-    re_path('send-email', EmailAPI.as_view()),
+
+path('',include(router.urls)),
+
+re_path('send-email', EmailAPI.as_view()),
+
+###################################################################################
+
+# FIREBASE NOTIFICATIONS DIRECT ENDPOINTS
+
+###################################################################################
+path('api/device-tokens/', views.register_device_token, name='register_device_token'),
+ 
+# Device Token Registration (for web admin)
+path('device-tokens-register/', views.register_device_token, name='device-tokens-register'),
+
+# Admin Notification Testing
+path('admin/test-notifications/', views.test_notification, name='admin-test-notifications'),
+
+# Notification Status Updates
+path('notifications/mark-read/', views.mark_notification_read, name='mark-notification-read'),
+path('notifications/mark-all-read/', views.mark_all_notifications_read, name='mark-all-notifications-read'),
+
+# Firebase Token Management
+path('firebase/token-refresh/', views.refresh_firebase_token, name='firebase-token-refresh'),
+path('firebase/token-validate/', views.validate_firebase_token, name='firebase-token-validate'),
+
+# Notification Analytics
+path('admin/notification-stats/', views.notification_statistics, name='notification-statistics'),
+path('admin/notification-logs/', views.notification_logs_view, name='notification-logs'),
+
+# User Notification Preferences
+path('user/notification-preferences/', views.user_notification_preferences, name='user-notification-preferences'),
+
+# Bulk Notification Operations
+path('admin/bulk-notify-users/', views.bulk_notify_users, name='bulk-notify-users'),
+path('admin/bulk-notify-companies/', views.bulk_notify_companies, name='bulk-notify-companies'),
+
 ]

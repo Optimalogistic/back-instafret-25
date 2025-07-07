@@ -1,0 +1,72 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} | {{ site_title|default:_('Instafret admin') }}{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'admin/css/notifications.css' %}">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js"></script>
+{% endblock %}
+
+{% block nav-global %}
+{{ block.super }}
+<!-- Ajouter l'icône de notification dans la navigation -->
+<div id="notification-container" class="notification-bell-container">
+    <div id="notification-bell" class="notification-bell">
+        <span class="bell-icon">🔔</span>
+        <span id="notification-count" class="notification-count hidden">0</span>
+    </div>
+    
+    <div id="notification-dropdown" class="notification-dropdown hidden">
+        <div class="notification-header">
+            <h3>Notifications</h3>
+            <button id="mark-all-read" class="mark-all-read">Tout marquer comme lu</button>
+        </div>
+        <div id="notification-list" class="notification-list">
+            <div class="no-notifications">Aucune notification</div>
+        </div>
+    </div>
+</div>
+
+<!-- Sons de notification -->
+<audio id="new-user-sound" preload="auto">
+    <source src="{% static 'sounds/new_user.mp3' %}" type="audio/mpeg">
+    <source src="{% static 'sounds/new_user.wav' %}" type="audio/wav">
+</audio>
+<audio id="new-request-sound" preload="auto">
+    <source src="{% static 'sounds/new_request.mp3' %}" type="audio/mpeg">
+    <source src="{% static 'sounds/new_request.wav' %}" type="audio/wav">
+</audio>
+<audio id="status-update-sound" preload="auto">
+    <source src="{% static 'sounds/status_update.mp3' %}" type="audio/mpeg">
+    <source src="{% static 'sounds/status_update.wav' %}" type="audio/wav">
+</audio>
+<audio id="new-offer-sound" preload="auto">
+    <source src="{% static 'sounds/new_offer.mp3' %}" type="audio/mpeg">
+    <source src="{% static 'sounds/new_offer.wav' %}" type="audio/wav">
+</audio>
+{% endblock %}
+
+{% block footer %}
+{{ block.super }}
+<script>
+    // Configuration Firebase
+    const firebaseConfig = {
+        apiKey: "{{ firebase_config.api_key }}",
+        authDomain: "{{ firebase_config.auth_domain }}",
+        projectId: "{{ firebase_config.project_id }}",
+        storageBucket: "{{ firebase_config.storage_bucket }}",
+        messagingSenderId: "{{ firebase_config.messaging_sender_id }}",
+        appId: "{{ firebase_config.app_id }}"
+    };
+    
+    // Variables globales
+    window.FIREBASE_CONFIG = firebaseConfig;
+    window.VAPID_KEY = "{{ firebase_config.vapid_key }}";
+    window.CSRF_TOKEN = "{{ csrf_token }}";
+    window.USER_ID = "{{ user.id }}";
+</script>
+<script src="{% static 'admin/js/firebase-notifications.js' %}"></script>
+{% endblock %}
