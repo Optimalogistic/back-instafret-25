@@ -51,22 +51,5 @@
 
 {% block footer %}
 {{ block.super }}
-<script>
-    // Configuration Firebase
-    const firebaseConfig = {
-        apiKey: "{{ firebase_config.api_key }}",
-        authDomain: "{{ firebase_config.auth_domain }}",
-        projectId: "{{ firebase_config.project_id }}",
-        storageBucket: "{{ firebase_config.storage_bucket }}",
-        messagingSenderId: "{{ firebase_config.messaging_sender_id }}",
-        appId: "{{ firebase_config.app_id }}"
-    };
-    
-    // Variables globales
-    window.FIREBASE_CONFIG = firebaseConfig;
-    window.VAPID_KEY = "{{ firebase_config.vapid_key }}";
-    window.CSRF_TOKEN = "{{ csrf_token }}";
-    window.USER_ID = "{{ user.id }}";
-</script>
 <script src="{% static 'admin/js/firebase-notifications.js' %}"></script>
 {% endblock %}

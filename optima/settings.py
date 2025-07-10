@@ -13,13 +13,20 @@ SECRET_KEY = 'django-insecure-40gl)s1=63_)n6(f&e9pf1w9yomxpg*-#c%&*wrjx%#@+34_ao
 DEBUG = True
 
 # Firebase Configuration
-FIREBASE_CREDENTIALS = os.path.join(BASE_DIR, "config", "firebase_key.json")
+# FIREBASE_CREDENTIALS = os.path.join(BASE_DIR, "config", "firebase_key.json")
 
+# if os.path.exists(FIREBASE_CREDENTIALS):
+#     with open(FIREBASE_CREDENTIALS, "r", encoding="utf-8") as f:
+#         FIREBASE_ADMIN_CRED = json.load(f)
+# else:
+#     FIREBASE_ADMIN_CRED = None
+    
+FIREBASE_CREDENTIALS = os.path.join(BASE_DIR, "config", "firebase_key.json")
 if os.path.exists(FIREBASE_CREDENTIALS):
-    with open(FIREBASE_CREDENTIALS, "r", encoding="utf-8") as f:
-        FIREBASE_ADMIN_CRED = json.load(f)
+    FIREBASE_ADMIN_CRED = FIREBASE_CREDENTIALS  # Pass the path, not the loaded dict
 else:
     FIREBASE_ADMIN_CRED = None
+
 
 # Firebase Web Configuration (pour les notifications admin)
 FIREBASE_WEB_CONFIG = {
@@ -34,7 +41,7 @@ FIREBASE_WEB_CONFIG = {
 
 ALLOWED_HOSTS = [
     'app.instafret.com', 'www.app.instafret.com', 'instafret.com', '.instafret.com',
-    'web.eco-fret.com', '.eco-fret.com', 'localhost', '127.0.0.1'
+    'web.eco-fret.com', '.eco-fret.com', 'localhost', '127.0.0.1', 'localhost:8000', '127.0.0.1:8000', '192.168.0.172'
 ]
 
 # Application definition
@@ -188,7 +195,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://web.eco-fret.com", "http://197.240.168.85", "http://localhost:4200", "https://localhost:4200",
     "http://localhost:3000", "http://212.102.35.251", "http://197.240.91.76",
     "http://www.instafret.com", "https://www.instafret.com", "http://instafret.com",
-    "https://instafret.com", "https://app.instafret.com", "http://app.instafret.com"
+    "https://instafret.com", "https://app.instafret.com", "http://app.instafret.com", "http://192.168.0.172"
 ]
 
 CORS_ALLOW_CREDENTIALS = True
